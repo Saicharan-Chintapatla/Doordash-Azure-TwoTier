@@ -1,118 +1,189 @@
-🍔 DoorDash Clone – Cloud-Native 2-Tier Web Application on Azure
-A fully functional DoorDash-inspired food delivery web app built as a DevOps capstone project on Microsoft Azure. Demonstrates real-world cloud infrastructure design including networking, compute, storage, database, and high availability.
+# 🍔 DoorDash Clone – Cloud-Native 2-Tier Web Application on Azure
 
-🏗️ Architecture Overview
-User
-  ↓
-Azure Public IP
-  ↓
-Azure Load Balancer
-  ↓
-VM Scale Set (Web VMs – Apache + PHP)
-  ↓ (Private VNet)
-MySQL DB VM (No Public IP)
-  ↓
-Azure Blob Storage (Restaurant Images)
+A fully functional DoorDash-inspired food delivery web app built as a **DevOps capstone project** on Microsoft Azure. Designed and deployed from scratch covering Azure networking, compute, storage, database, and dynamic web application development across 3 progressive phases.
 
-🚀 Phases
-Phase I – Network Foundation & Web Server
+> **Live Demo:** `http://20.25.96.127` (Web VM Public IP)
 
-Created Azure Resource Group, Virtual Network, and Subnets
-Deployed Linux VM (Ubuntu 22.04) with Apache
-Configured NSG rules (HTTP port 80, SSH restricted to my IP)
-Hosted a static HTML page to validate connectivity
+---
 
-Phase II – Dynamic 2-Tier Application (PHP + MySQL)
+## 🏗️ Architecture
 
-Deployed a private DB VM (no public IP) in a separate subnet
-Installed and configured MySQL on the DB VM
-Installed PHP on the Web VM and connected it to MySQL over private VNet
-Built dynamic index.php that renders restaurant data from the database
-Built admin.php to add restaurants via a web form
+\```
+User (Browser)
+      ↓
+Azure Public IP (20.25.96.127)
+      ↓
+Doordash-WebVM  →  Apache + PHP  (Private IP: 10.0.1.4)
+      ↓  [Private VNet - DoordashVnet - 10.0.0.0/16]
+Doordash-dbVM   →  MySQL 8.x     (Private IP: 10.0.2.4 | No Public IP)
+      ↓
+Azure Blob Storage (doordash0511 | Container: doordashrestaurants)
+\```
 
-Phase III – Azure Blob Storage Integration
+---
 
-Created Azure Storage Account and Blob container with public read access
-Modified admin.php to upload restaurant images directly to Blob Storage using Azure REST API
-Stored Blob image URLs in MySQL — removed all dependency on local image storage
-index.php now renders images directly from Blob Storage URLs stored in the DB
+## ☁️ Azure Resources
 
-Phase IV – High Availability with VM Scale Set
+| Resource | Name | Details |
+|---|---|---|
+| Resource Group | DoordashRG | East US |
+| Virtual Network | DoordashVnet | 10.0.0.0/16 — 2 subnets |
+| Web VM | Doordash-WebVM | Ubuntu 24.04 · Standard DC2ds v3 · Public IP: 20.25.96.127 |
+| DB VM | Doordash-dbVM | Ubuntu 24.04 · Standard DC1s v3 · **No Public IP** |
+| Storage Account | doordash0511 | Blob Storage |
+| Blob Container | doordashrestaurants | Public read access |
 
-Deprovisioned the Web VM and captured it as a Golden Image
-Created a VM Scale Set from the custom image (2 instances)
-Configured an Azure Load Balancer with health probes and load balancing rules
-Enabled autoscaling — scales out at >70% CPU, scales in at <30% CPU
-Verified traffic distribution across multiple instances using hostname display
+---
 
+## 🚀 Phases
 
-🛠️ Azure Services Used
-ServicePurposeResource GroupLogical container for all resourcesVirtual Network + SubnetsNetwork isolation (web-subnet, db-subnet)Network Security GroupFirewall rules for HTTP, SSH, MySQLLinux VMs (Ubuntu 22.04)Web server and Database serverApache + PHPWeb application hostingMySQLRelational database for restaurant dataAzure Blob StorageCloud image storageVM Scale SetHorizontal scaling of web tierAzure Load BalancerTraffic distribution across VMSS instancesPublic IPInternet-facing entry point
+### Phase I – Network Foundation & Web Server Setup
+- Created **Resource Group** (`DoordashRG`) in East US
+- Created **Virtual Network** (`DoordashVnet`) with address space `10.0.0.0/16` and 2 subnets
+- Configured **NSG rules** — HTTP port 80 open to internet, SSH port 22 restricted to admin IP only
+- Deployed **Doordash-WebVM** (Ubuntu 24.04, Standard DC2ds v3) with Public IP `20.25.96.127`
+- Installed and configured **Apache2** web server
+- Validated connectivity by hosting a static HTML page
 
-📁 Project File Structure
-/var/www/html/          ← Web VM document root
-├── index.php           ← DoorDash clone homepage (pulls data from MySQL + images from Blob)
-├── admin.php           ← Admin panel (uploads image to Blob, inserts record into MySQL)
-├── db.php              ← MySQL connection (connects to DB VM via private IP)
-└── style.css           ← Frontend styling
+### Phase II – Dynamic 2-Tier Application (PHP + MySQL)
+- Deployed **Doordash-dbVM** (Ubuntu 24.04, Standard DC1s v3) with **no public IP** — isolated inside the VNet at `10.0.2.4`
+- Installed **MySQL 8** on the DB VM, opened port 3306 only to VirtualNetwork traffic via NSG
+- Changed `bind-address` from `127.0.0.1` to `0.0.0.0` to allow VNet-internal connections
+- Created database `doordash_db`, table `restaurants`, and user `doordashuser` with full privileges
+- Installed **PHP + php-curl** on the Web VM and connected it to MySQL over private VNet using PDO
+- Built `db.php` for centralized DB connection, `index.php` for the dynamic homepage, and `admin.php` for the admin panel
 
-⚙️ Key Configuration
-db.php
-Connects to MySQL on the DB VM using its private IP inside the Azure VNet:
-php$pdo = new PDO("mysql:host=<DB_VM_PRIVATE_IP>;dbname=doordash_db", "user", "password");
-Azure Blob Upload (admin.php)
-Uses Azure Blob REST API with Storage Account Key — no SDK dependency:
-php// PUT request to Azure Blob REST API
-$upload_url = "https://<account>.blob.core.windows.net/<container>/<filename>";
-// Authorization header signed with Storage Account Key
-MySQL Schema
-sqlCREATE TABLE restaurants (
+### Phase III – Azure Blob Storage Integration
+- Created **Storage Account** (`doordash0511`) and Blob container (`doordashrestaurants`) with public read access
+- Modified `admin.php` to upload restaurant images directly to **Azure Blob Storage** using the REST API with Storage Account Key authentication (no SDK required)
+- Stored the full **Blob URL** in the `image_url` column of MySQL — no local image storage needed
+- `index.php` renders images directly from Blob Storage URLs fetched from the DB
+
+---
+
+## 📁 File Structure
+
+\```
+/var/www/html/
+├── index.php               ← DoorDash clone homepage
+├── admin.php               ← Admin panel (Blob upload + DB insert)
+├── db.php                  ← MySQL PDO connection to DB VM
+└── style.css               ← Frontend styling
+\```
+
+---
+
+## ⚙️ Key Implementation Details
+
+### Network Security
+- DB VM has **zero public internet exposure** — private IP `10.0.2.4` only
+- NSG rule: port 3306 open to `VirtualNetwork` tag only
+- SSH locked to admin IP, HTTP open on port 80
+
+### Database Schema
+\```sql
+CREATE TABLE restaurants (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   name          VARCHAR(100) NOT NULL,
   category      VARCHAR(50)  NOT NULL,
   rating        DECIMAL(2,1) NOT NULL,
   distance_miles DECIMAL(4,1) NOT NULL,
   delivery_time VARCHAR(20)  NOT NULL,
-  image_url     VARCHAR(500) NOT NULL,   -- Azure Blob URL
+  image_url     VARCHAR(500) NOT NULL,
   delivery_fee  DECIMAL(5,2) NOT NULL DEFAULT 0.00,
   is_active     TINYINT(1)   NOT NULL DEFAULT 1,
   created_at    DATETIME     DEFAULT NOW()
 );
+\```
 
-🔐 Security Design
+### Blob Upload Flow
+\```
+Admin fills form + selects image
+        ↓
+PHP reads image file
+        ↓
+cURL PUT → Azure Blob REST API (Storage Account Key auth)
+        ↓
+Blob URL saved to MySQL image_url column
+        ↓
+index.php renders image from Blob URL
+\```
 
-DB VM has no public IP — accessible only within the VNet
-MySQL port 3306 open only to VirtualNetwork traffic via NSG
-SSH restricted to admin IP only
-Storage Account Key used server-side only — never exposed to client
+### DB Connection
+\```php
+$pdo = new PDO("mysql:host=10.0.2.4;dbname=doordash_db;charset=utf8mb4",
+               "doordashuser", "password");
+\```
 
+---
 
-📈 High Availability Design
+## 🖥️ Screenshots
 
-Web tier is stateless — no local image or session storage
-Images in Blob Storage, data in DB VM → Web VM can be freely cloned
-VMSS automatically replaces unhealthy instances via Load Balancer health probes
-Autoscaling handles traffic spikes without manual intervention
+### Resource Group – DoordashRG
+![Resource Group](screenshots/resourcegroup.png)
 
+### Virtual Network – DoordashVnet
+![VNet](screenshots/vnet.png)
 
-🧰 Tech Stack
+### Web VM – Doordash-WebVM
+![Web VM](screenshots/webvm.png)
 
-Cloud: Microsoft Azure
-OS: Ubuntu 22.04 LTS
-Web Server: Apache2
-Language: PHP 8.x
-Database: MySQL 8.x
-Storage: Azure Blob Storage
-Infra: Azure VMSS, Load Balancer, NSG, VNet
+### DB VM – Doordash-dbVM
+![DB VM](screenshots/dbvm.png)
 
+### SSH into Web VM
+![SSH](screenshots/ssh.png)
 
-📌 How to Deploy
+### Apache Setup
+![Apache](screenshots/apache.png)
 
-Create Resource Group, VNet with two subnets (web + db)
-Deploy DB VM (no public IP), install MySQL, run setup.sql
-Deploy Web VM, install Apache + PHP + php-curl
-Copy index.php, admin.php, db.php, style.css to /var/www/html/
-Update db.php with DB VM private IP and credentials
-Update admin.php with Azure Storage Account name and Key
-Test via Web VM public IP
-For HA: deprovision VM → capture image → create VMSS → attach Load Balancer
+### MySQL Setup on DB VM
+![MySQL](screenshots/mysql.png)
+
+### Azure Blob Storage
+![Blob Storage](screenshots/blobstorage.png)
+
+### Admin Panel
+![Admin](screenshots/admin.png)
+
+### DoorDash Clone – Live
+![Homepage](screenshots/homepage.png)
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Cloud | Microsoft Azure |
+| OS | Ubuntu 24.04 LTS |
+| Web Server | Apache2 |
+| Backend | PHP 8 + php-curl |
+| Database | MySQL 8 |
+| Image Storage | Azure Blob Storage |
+| Networking | Azure VNet · NSG · Public IP |
+
+---
+
+## 🔧 How to Deploy
+
+\```bash
+# 1. DB VM – setup MySQL
+sudo apt install mysql-server -y
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf   # bind-address = 0.0.0.0
+sudo systemctl restart mysql
+
+# 2. Web VM – install Apache + PHP
+sudo apt install apache2 php libapache2-mod-php php-mysql php-curl -y
+sudo systemctl restart apache2
+
+# 3. Copy files
+scp index.php admin.php db.php style.css devopsuser@20.25.96.127:/var/www/html/
+
+# 4. Update db.php — DB VM private IP + credentials
+# 5. Update admin.php — Storage Account name + Key
+\```
+
+---
+
+**GitHub:** [https://github.com/Saicharan-Chintapatla/Doordash-Azure-TwoTier](https://github.com/Saicharan-Chintapatla/Doordash-Azure-TwoTier)
