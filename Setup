@@ -1,0 +1,12 @@
+CREATE TABLE restaurants (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  name          VARCHAR(100) NOT NULL,
+  category      VARCHAR(50)  NOT NULL,
+  rating        DECIMAL(2,1) NOT NULL,
+  distance_miles DECIMAL(4,1) NOT NULL,
+  delivery_time VARCHAR(20)  NOT NULL,
+  image_url     VARCHAR(500) NOT NULL,   -- Azure Blob URL
+  delivery_fee  DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  is_active     TINYINT(1)   NOT NULL DEFAULT 1,
+  created_at    DATETIME     DEFAULT NOW()
+);
