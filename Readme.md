@@ -1,21 +1,24 @@
 # DoorDash Clone - Cloud-Native 2-Tier Web Application on Azure
 
-A fully functional DoorDash-inspired food delivery web app built as a DevOps capstone project on Microsoft Azure. Designed and deployed from scratch covering Azure networking, compute, storage, database, and dynamic web application development across 3 progressive phases.
+A fully functional DoorDash-inspired food delivery web app built as a DevOps capstone project on Microsoft Azure. Designed and deployed from scratch covering Azure networking, compute, storage, database, high availability and auto scaling across 4 progressive phases.
 
 Live Demo: http://20.25.96.127
 
 ---
 
-## Architecture
+## Final Architecture
 
 ```
 User (Browser)
      |
      v
-Azure Public IP (20.25.96.127)
+Azure Public IP
      |
      v
-Doordash-WebVM (Apache + PHP) -- Private IP: 10.0.1.4
+Azure Load Balancer
+     |
+     v
+VM Scale Set (Apache + PHP instances)
      |
      |  [DoordashVnet - 10.0.0.0/16]
      v
@@ -38,6 +41,8 @@ Web VM            Doordash-WebVM        Ubuntu 24.04, Public IP: 20.25.96.127
 DB VM             Doordash-dbVM         Ubuntu 24.04, No Public IP
 Storage Account   doordash0511          Blob Storage
 Blob Container    doordashrestaurants   Public read access
+VM Scale Set      vmss-doordash         2 instances, autoscaling enabled
+Load Balancer     lb-doordash           HTTP port 80, health probes enabled
 ```
 
 ---
@@ -68,6 +73,21 @@ Blob Container    doordashrestaurants   Public read access
 - Modified admin.php to upload restaurant images directly to Azure Blob Storage using the REST API with Storage Account Key authentication (no SDK required)
 - Stored the full Blob URL in the image_url column of MySQL - no local image storage needed
 - index.php renders images directly from Blob Storage URLs fetched from the DB
+
+### Phase IV - High Availability with VM Scale Set and Load Balancer
+
+- Deprovisioned the Web VM and captured it as a Golden Image using Azure VM Capture
+- Created a VM Scale Set from the custom image with 2 instances
+- Configured an Azure Load Balancer with a public IP as the single entry point for all traffic
+- Set up HTTP health probes on port 80 to automatically detect and replace unhealthy instances
+- Enabled autoscaling - scales out when CPU exceeds 70%, scales in when CPU drops below 30%
+- Verified traffic distribution across multiple instances using hostname display
+- Web tier is fully stateless - images in Blob Storage, data in DB VM - safe to scale horizontally
+
+```
+Scale Out    CPU > 70%    Increase instance count by 1
+Scale In     CPU < 30%    Decrease instance count by 1
+```
 
 ---
 
@@ -157,7 +177,7 @@ $pdo = new PDO("mysql:host=10.0.2.4;dbname=doordash_db;charset=utf8mb4",
 ![Admin](screenshots/admin.png)
 
 ### DoorDash Clone - Live
-![Homepage](screenshots/home.png)
+![Homepage](screenshots/homepage.png)
 
 ---
 
@@ -172,6 +192,8 @@ Web Server        Apache2
 Backend           PHP 8 + php-curl
 Database          MySQL 8
 Image Storage     Azure Blob Storage
+Scaling           Azure VM Scale Set
+Load Balancing    Azure Load Balancer
 Networking        Azure VNet, NSG, Public IP
 ```
 
@@ -195,58 +217,12 @@ scp index.php admin.php db.php style.css devopsuser@20.25.96.127:/var/www/html/
 
 # 4. Update db.php with DB VM private IP and credentials
 # 5. Update admin.php with Azure Storage Account name and Key
+
+# 6. For Phase IV - capture Golden Image and create VMSS
+sudo waagent -deprovision+user
+# Then in Azure Portal - Stop VM, Capture Image, Create Scale Set
 ```
 
 ---
 
 GitHub: https://github.com/Saicharan-Chintapatla/Doordash-Azure-TwoTier
-
----
-
-## Phase IV - High Availability with VM Scale Set and Load Balancer
-
-- Deprovisioned the Web VM and captured it as a Golden Image using Azure VM Capture
-- Created a VM Scale Set (vmss-doordash) from the custom image with 2 instances
-- Configured an Azure Load Balancer with a public IP as the single entry point for all traffic
-- Set up HTTP health probes on port 80 to automatically detect and replace unhealthy instances
-- Enabled autoscaling rules - scales out when CPU exceeds 70%, scales in when CPU drops below 30%
-- Verified traffic distribution across multiple VMSS instances using hostname display
-- Web tier is fully stateless - images in Blob Storage, data in DB VM - safe to scale horizontally
-
-### Phase IV Architecture
-
-```
-User (Browser)
-     |
-     v
-Azure Public IP
-     |
-     v
-Azure Load Balancer
-     |
-     v
-VM Scale Set (Doordash-WebVM instances - Apache + PHP)
-     |
-     |  [DoordashVnet - 10.0.0.0/16]
-     v
-Doordash-dbVM (MySQL 8) -- Private IP: 10.0.2.4 -- No Public IP
-     |
-     v
-Azure Blob Storage (doordash0511 / doordashrestaurants)
-```
-
-### Autoscaling Rules
-
-```
-Scale Out    CPU > 70%    Increase instance count by 1
-Scale In     CPU < 30%    Decrease instance count by 1
-```
-
-### Why Stateless Web Tier Works
-
-```
-Images   --> stored in Azure Blob Storage  (not on VM disk)
-Data     --> stored in DB VM MySQL         (not on VM disk)
-Sessions --> stateless PHP                 (no local state)
-Result   --> Web VM can be cloned safely into a Scale Set
-```
