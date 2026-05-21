@@ -157,7 +157,7 @@ $pdo = new PDO("mysql:host=10.0.2.4;dbname=doordash_db;charset=utf8mb4",
 ![Admin](screenshots/admin.png)
 
 ### DoorDash Clone - Live
-![Homepage](screenshots/homepage.png)
+![Homepage](screenshots/home.png)
 
 ---
 
