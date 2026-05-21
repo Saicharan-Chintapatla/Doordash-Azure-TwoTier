@@ -8,17 +8,22 @@ A fully functional DoorDash-inspired food delivery web app built as a **DevOps c
 
 ## 🏗️ Architecture
 
-\```
+```
 User (Browser)
-      ↓
+     |
+     v
 Azure Public IP (20.25.96.127)
-      ↓
-Doordash-WebVM  →  Apache + PHP  (Private IP: 10.0.1.4)
-      ↓  [Private VNet - DoordashVnet - 10.0.0.0/16]
-Doordash-dbVM   →  MySQL 8.x     (Private IP: 10.0.2.4 | No Public IP)
-      ↓
-Azure Blob Storage (doordash0511 | Container: doordashrestaurants)
-\```
+     |
+     v
+Doordash-WebVM (Apache + PHP) -- Private IP: 10.0.1.4
+     |
+     |  [DoordashVnet - 10.0.0.0/16]
+     v
+Doordash-dbVM (MySQL 8) -- Private IP: 10.0.2.4 -- No Public IP
+     |
+     v
+Azure Blob Storage (doordash0511 / doordashrestaurants)
+```
 
 ---
 
@@ -63,13 +68,13 @@ Azure Blob Storage (doordash0511 | Container: doordashrestaurants)
 
 ## 📁 File Structure
 
-\```
+```
 /var/www/html/
-├── index.php               ← DoorDash clone homepage
-├── admin.php               ← Admin panel (Blob upload + DB insert)
-├── db.php                  ← MySQL PDO connection to DB VM
-└── style.css               ← Frontend styling
-\```
+|-- index.php        (DoorDash clone homepage)
+|-- admin.php        (Admin panel - Blob upload + DB insert)
+|-- db.php           (MySQL PDO connection to DB VM)
+|-- style.css        (Frontend styling)
+```
 
 ---
 
